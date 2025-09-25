@@ -1,0 +1,13 @@
+Package: O2DIA
+Version: 1.1
+Title: Diagenetic Model Tools for Oxygen Dynamics
+Author: Karline Soetaert <karline.soetaert@nioz.nl>, Qi Liu <qi.liu@nioz.nl>
+Maintainer: Karline Soetaert <karline.soetaert@nioz.nl>
+Depends: R (>= 3.0), deSolve, rootSolve, plot3D
+Imports: ReacTran, methods
+Suggests: knitr, rmarkdown
+VignetteBuilder: knitr
+Description: Early diagenetic model for simple O2 dynamics.
+License: GPL (>=3.0)
+NeedsCompilation: yes
+Packaged: 2024-08-12 09:54:07 UTC; karlines

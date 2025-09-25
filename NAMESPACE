@@ -1,0 +1,23 @@
+useDynLib(O2DIA, .registration = TRUE)
+
+importFrom("ReacTran", "setup.grid.1D")
+importFrom("graphics", "par", "plot")
+importFrom("stats", "approx", "approxfun", "runif")
+importFrom("utils", "capture.output")
+importFrom("grDevices", "dev.interactive", "devAskNewPage")
+importFrom("stats", "uniroot")
+importFrom("methods", "setOldClass", "setMethod")
+
+import(deSolve, rootSolve, plot3D)
+
+export(O2DIAdyna, O2DIAsteady)
+export(O2DIAparms, O2DIAdepth, O2DIAdx, O2DIApor, O2DIAgrid)
+export(O2DIA0D, O2DIA1D, O2DIAsvar)
+export(O2DIAbudgetO2)
+
+export(matplot1D)
+
+S3method("image2D", "O2DIAdyn")
+S3method("matplot1D", "default")
+S3method("matplot1D", "O2DIAdyn")
+S3method("plot", "O2DIAstd")
