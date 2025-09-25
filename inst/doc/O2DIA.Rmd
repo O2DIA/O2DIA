@@ -1,0 +1,270 @@
+---
+title: "The O2DIA package - early diagenetic modelling of the O2 cycle"
+author: "Karline Soetaert, Li Qiu, Lubos Polerecky"
+date: "04-July-2024"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteEncoding{UTF-8}
+  %\VignetteIndexEntry{O2DIA: early diagenetic modelling of O2 cycle}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include=FALSE}
+options(width = 120)
+```
+
+# O2DIA
+
+The O2DIA model is a 1-D model of oxygen diagenesis in aquatic sediments. 
+
+```{r, message=FALSE}
+require(O2DIA)
+```
+
+The O2DIA package contains functions to generate (a time series of) vertical, one dimensional (1DV) diagenetic profiles. It can either be run in dynamic mode, or the steady-state solution can be estimated. 
+It contains several utility functions, e.g. to help in extracting information on the model output, or to estimate mass budgets. 
+
+The package contains the following functions:
+
+```{r}
+ls("package:O2DIA")
+```
+
+# Main functions
+
+The main functions allow to solve the model to steady state (*O2DIAsteady*), or to run it dynamically (*O2DIAdyna*).
+
+## Steady-state solution, function O2DIAsteady
+
+Function *O2DIAsteady* finds the steady-state solution of the O2DIA model. Its arguments are:
+
+```{r, comment=NA}
+args(O2DIAsteady)
+```
+
+here *parms* is a list with a subset of the O2DIA parameters (see appendix for what they mean and their default values). If a parameter is unspecified, then the default value is used.
+
+## Dynamic run, function O2DIAdyna
+
+Function *O2DIAdyna* runs the O2DIA model for a specific time interval and produces output at requested times. Its arguments are:
+
+```{r, comment=NA}
+args(O2DIAdyna)
+```
+
+The function to run the model dynamically also allows for several external conditions to be either constants or to vary in time: Temperature, PAR0 and Waterheight. 
+These forcing functions are either prescribed as a data series or a function that takes time as its input argument.
+
+# Accessory functions
+
+## showing the parameter values
+
+The values of the parameters, and their units can be interrogated:
+
+```{r}
+P  <- O2DIAparms()
+head(P)
+```
+
+See the appendix for a complete list of the parameters.
+
+Also the parameter settings of a dynamic run can be output:
+
+```{r}
+DYN <- O2DIAdyna()
+head(O2DIAparms(DYN))
+```
+
+```{r}
+O2DIAparms(DYN, which = "Q10_min")
+```
+
+## Budgets
+
+Once the model is solved, it is possible to calculate budgets of the O2 cycle (*O2DIAbudgetO2*).
+
+
+```{r}
+std <- O2DIAsteady()
+
+print(O2DIAbudgetO2(std))
+```
+
+where all fluxes are in *mol/m2/day*.
+
+## Properties of solutions
+
+There are functions to retrieve several properties of the solution:
+
+* *O2DIAdepth*, *O2DIAdx*, *O2DIAgrid* retrieve the sediment depths, layer thicknesses and grid of *O2DIA* model solutions.
+* *O2DIAparms* retrieves the parameter settings of *O2DIA* model solutions.
+* *O2DIA0D* and *O2DIA1D* return the output variables of the solution as a vector or data.frame. For dynamic runs, the output is averaged over the mean of the run. *O2DIA1D* always returns the sediment depth and the porosity as the first two columns.
+
+
+```{R}
+range(O2DIAdx(std))
+range(O2DIAgrid()$x.int)
+head(O2DIAdepth(std))
+```
+
+Profiles of one-dimensional variables can be extracted with *O2DIA1D*:
+
+```{r}
+head(O2DIA1D(std), n = 3)
+```
+
+# Steady-state applications
+
+The function *O2DIAsteady* solves for a steady-state condition.
+
+## Simple applications
+
+In the frst example, we run the model for several temperatures using *rootSolve*'s *plot* function. 
+
+```{r fig.width=8, fig.height=8}
+STD1 <- O2DIAsteady (Temperature =  0)   
+STD2 <- O2DIAsteady (Temperature = 10)   
+STD3 <- O2DIAsteady (Temperature = 20)
+plot(STD1, STD2, STD3, 
+     which = c("O2", "ODU"), 
+     ylim  = c(0.01, 0), lty = 1, lwd = 2)
+legend("bottom", legend = c(0, 10, 20), title = "dgC", 
+       lty = 1, col = 1:3)
+```
+
+## Dry flats, moist sediment
+
+The exchange of substances at the upper interface can take on two modes: 
+
+  - exchange with water overlying the sediment or 
+  - exchange with the atmosphere.
+
+When flats are not exposed to overlying water, the exchange with the atmosphere for O2 BUT NOT FOR ODU is much faster. Also, the microphytobenthos production rate is much lower (according to parameter *prodfacdry*)
+
+```{r fig.width=8, fig.height=6}
+O2DIAparms(which = "prodfacdry")
+out    <- O2DIAsteady()
+outdry <- O2DIAsteady(Waterheight = 0)
+
+plot(out, outdry, 
+     which = c("O2", "ODU"), 
+     lty = 1, lwd = 2)
+legend("topright", title = "exchange", legend = c("water","dry"), 
+       col = 1:2, lty = 1) 
+```
+
+```{r}
+print(O2DIAbudgetO2(out, outdry))
+```
+
+# Dynamic runs with sinusoidal forcing
+
+## Light intensity
+
+In the first dynamic run, a sinusoidal variation in time is used for the light; the sediment remains inundated.
+
+```{r fig.width=8, fig.height=8}
+times    <- seq (0, 1, length.out = 100)
+PAR0_fun <- function(t) pmax(0, 1000*sin(2*pi*t - pi/2))
+
+DIA <- O2DIAdyna (times = times,
+                  PAR0 = PAR0_fun)
+
+image2D(DIA, 
+        mfrow = c(2, 3), las = 1)
+
+plot(DIA, which = c("PAR0", "Waterheight"), mfrow=NULL)
+matplot.0D(DIA, 
+           which = c("O2SWIflux", "ODUSWIflux"), 
+           main = "sediment-water exchange fluxes", 
+           ylab = "mol/m2/d",
+           mfrow = NULL, lty = 1, lwd = 2)
+matplot1D(DIA, which = c("O2"), 
+     mfrow = NULL, lwd = 2)
+```
+
+In the first dynamic run, a sinusoidal variation in time is used for the light; the sediment is dry
+
+```{r fig.width=8, fig.height=8}
+DIA2 <- O2DIAdyna (times = times,
+                  PAR0 = PAR0_fun,
+                  Waterheight = 0)
+
+image2D(DIA2, 
+        mfrow = c(2, 3), las = 1)
+
+plot(DIA2, which = c("PAR0", "Waterheight"), mfrow=NULL)
+matplot.0D(DIA2, 
+           which = c("O2SWIflux", "ODUSWIflux"), 
+           main = "sediment-water exchange fluxes", 
+           ylab = "mol/m2/d",
+           mfrow = NULL, lty = 1, lwd = 2)
+matplot1D(DIA2, which = c("O2"), 
+     mfrow = NULL, lwd = 2)
+```
+
+The budgets for the two runs are compared
+
+```{r}
+O2DIAbudgetO2(DIA, DIA2)
+```
+
+
+## Water height and light intensity
+
+On top of the light intensity variation, also the water height changes. 
+The light intensity is also affected by the water height (extinction coefficient 1/m)
+
+```{r fig.width=8, fig.height=8}
+times    <- seq (0, 1, length.out = 100)
+WH_fun <- function(t) pmax(0, 2*sin(2*pi*t/0.517))  # tidal period = 12.4/24 days
+PAR0_fun <- function(t) pmax(0, 1000*sin(2*pi*t - pi/2))*exp(-1*WH_fun(t))
+
+DIA3 <- O2DIAdyna (times = times,
+                  Waterheight = WH_fun,
+                  PAR0 = PAR0_fun)
+
+image2D(DIA3, 
+        mfrow = c(2, 3), las = 1)
+
+plot(DIA3, which = c("PAR0", "Waterheight"), mfrow=NULL)
+matplot.0D(DIA3, 
+           which = c("O2SWIflux", "ODUSWIflux"), 
+           main = "sediment-water exchange fluxes", 
+           ylab = "mol/m2/d",
+           mfrow = NULL, lty = 1, lwd = 2)
+matplot1D(DIA3, which = c("O2"), 
+     mfrow = NULL, lwd = 2)
+```
+
+
+# References
+
+to be added
+
+# APPENDIX
+
+## Parameters and default values.
+
+```{r}
+knitr:::kable(O2DIAparms())
+```
+
+## State variables
+
+```{r}
+knitr:::kable(O2DIAsvar())
+```
+
+## Zero-D ordinary variables
+
+```{r}
+knitr:::kable(O2DIA0D())
+```
+
+## One-D ordinary variables
+
+```{r}
+knitr:::kable(O2DIA1D())
+```
+
